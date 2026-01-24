@@ -1,4 +1,5 @@
 import OpenAI from "openai"
+import * as fs from "fs"
 import { tools, executeTool, ConfirmCallback } from "./tools"
 
 export interface AgentConfig {
@@ -35,7 +36,8 @@ export class Agent {
   }
 
   async chat(userInput: string): Promise<string> {
-    this.messages.push({ role: "user", content: userInput })
+    const augmentedInput = await this.resolveFileReferences(userInput)
+    this.messages.push({ role: "user", content: augmentedInput })
 
     let loopCount = 0
     const MAX_LOOPS = 20
@@ -86,5 +88,33 @@ export class Agent {
     }
 
     return "Error: Maximum loop count reached."
+  }
+
+  private async resolveFileReferences(input: string): Promise<string> {
+    const fileRegex = /\[.*?\]\((.*?)\)/g
+    let match
+    let content = input
+    const filesToRead: string[] = []
+
+    while ((match = fileRegex.exec(input)) !== null) {
+      filesToRead.push(match[1])
+    }
+
+    if (filesToRead.length > 0) {
+      content += "\n\nContext Files:"
+      for (const filePath of filesToRead) {
+        try {
+          // Check if file exists and is readable
+          if (fs.existsSync(filePath)) {
+            const fileContent = await fs.promises.readFile(filePath, "utf-8")
+            content += `\n\n--- ${filePath} ---\n${fileContent}\n--- End of ${filePath} ---`
+          }
+        } catch (e: any) {
+          // Ignore errors, maybe the link is not a local file
+          console.warn(`Could not read referenced file ${filePath}: ${e.message}`)
+        }
+      }
+    }
+    return content
   }
 }
