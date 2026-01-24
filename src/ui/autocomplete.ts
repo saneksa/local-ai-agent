@@ -1,21 +1,25 @@
 import * as readline from "readline"
 import { FileRegistry, FileInfo } from "../file-registry"
+import { CommandRegistry, CommandInfo } from "../command-registry"
 
 export class AutocompletePrompt {
   private fileRegistry: FileRegistry
+  private commandRegistry: CommandRegistry
   private input: string = ""
   private cursorPos: number = 0
   private isDropdownOpen: boolean = false
   private dropdownIndex: number = 0
-  private searchResults: FileInfo[] = []
+  private searchResults: (FileInfo | CommandInfo)[] = []
   private searchStartPos: number = -1
   private promptText: string = ""
   private lastDropdownHeight: number = 0
   private resolve?: (value: string) => void
   private reject?: (reason: any) => void
+  private isCommandMode: boolean = false
 
-  constructor(fileRegistry: FileRegistry) {
+  constructor(fileRegistry: FileRegistry, commandRegistry: CommandRegistry) {
     this.fileRegistry = fileRegistry
+    this.commandRegistry = commandRegistry
   }
 
   async ask(promptText: string): Promise<string> {
@@ -56,6 +60,7 @@ export class AutocompletePrompt {
       this.clearDropdown()
     }
     process.stdout.write("\n")
+    process.stdin.pause()
   }
 
   private handleKeypress = (str: string, key: readline.Key) => {
@@ -66,7 +71,7 @@ export class AutocompletePrompt {
 
     if (key.name === "return") {
       if (this.isDropdownOpen) {
-        this.selectFile()
+        this.selectItem()
       } else {
         this.cleanup()
         this.resolve?.(this.input)
@@ -130,41 +135,72 @@ export class AutocompletePrompt {
   }
 
   private updateDropdownState() {
-    // Check if we are currently editing a #hashtag
-    // We look backwards from cursor to find the last #
+    // Check if we are currently editing a #hashtag or /command
     const textBeforeCursor = this.input.slice(0, this.cursorPos)
     const lastHashIndex = textBeforeCursor.lastIndexOf("#")
+    const lastSlashIndex = textBeforeCursor.lastIndexOf("/")
 
-    if (lastHashIndex !== -1) {
-      // Ensure there are no spaces between # and cursor (simple implementation)
-      // Or allow spaces if we want "multi word" file search? usually filenames don't have spaces or we stop at space.
-      // Let's assume filenames might have spaces but usually we stop searching on newline or some chars.
-      // For now: search until space.
-      const query = textBeforeCursor.slice(lastHashIndex + 1)
+    // Determine which trigger is closer to the end/active
+    // Commands usually start at the beginning of line or maybe anywhere? 
+    // User requirement: "launch commands with /, autocomplete available commands when inputting /"
+    // Usually commands are at the start, but let's support them anywhere for now or restrict to start if needed.
+    // For simplicity, let's treat them like tags but with / prefix.
+
+    // We prioritize the one closest to cursor that doesn't have a space after it
+    
+    let triggerChar = ""
+    let triggerIndex = -1
+
+    if (lastHashIndex > lastSlashIndex) {
+        triggerChar = "#"
+        triggerIndex = lastHashIndex
+    } else {
+        triggerChar = "/"
+        triggerIndex = lastSlashIndex
+    }
+
+    if (triggerIndex !== -1) {
+      const query = textBeforeCursor.slice(triggerIndex + 1)
       
-      // If there is a space after #, we might close dropdown or continue. 
-      // Convention: #filename triggers. If I type "#file name", usually spaces break the tag unless escaped.
-      // Let's close dropdown if there's a space.
       if (query.includes(" ")) {
         this.isDropdownOpen = false
+        this.isCommandMode = false
         return
       }
 
-      this.searchStartPos = lastHashIndex
-      this.searchResults = this.fileRegistry.search(query)
+      this.searchStartPos = triggerIndex
+      
+      if (triggerChar === "#") {
+          this.isCommandMode = false
+          this.searchResults = this.fileRegistry.search(query)
+      } else {
+          this.isCommandMode = true
+          this.searchResults = this.commandRegistry.search(query)
+      }
+
       this.isDropdownOpen = this.searchResults.length > 0
       this.dropdownIndex = 0
     } else {
       this.isDropdownOpen = false
+      this.isCommandMode = false
     }
   }
 
-  private selectFile() {
+  private selectItem() {
     if (!this.searchResults[this.dropdownIndex]) return
 
-    const file = this.searchResults[this.dropdownIndex]
-    // Format: [filename](path)
-    const textToInsert = `[${file.name}](${file.path}) `
+    const item = this.searchResults[this.dropdownIndex]
+    let textToInsert = ""
+
+    if (this.isCommandMode) {
+        // Command
+        textToInsert = `/${item.name}` 
+        // If it was a partial command typed, we replace from searchStartPos
+    } else {
+        // File
+        const file = item as FileInfo
+        textToInsert = `[${file.name}](${file.path}) `
+    }
     
     const beforeHash = this.input.slice(0, this.searchStartPos)
     const afterCursor = this.input.slice(this.cursorPos)
@@ -209,14 +245,27 @@ export class AutocompletePrompt {
       const end = Math.min(start + maxItems, this.searchResults.length)
       
       for (let i = start; i < end; i++) {
-        const file = this.searchResults[i]
+        const item = this.searchResults[i]
         const isSelected = i === this.dropdownIndex
-        const icon = this.getFileIcon(file.type)
+        
+        let icon = ""
+        let text = ""
+        
+        if (this.isCommandMode) {
+             const cmd = item as CommandInfo
+             icon = "🔧"
+             text = `${cmd.name} - ${cmd.description}`
+        } else {
+             const file = item as FileInfo
+             icon = this.getFileIcon(file.type)
+             text = file.path
+        }
+
         const prefix = isSelected ? "> " : "  "
         const style = isSelected ? "\x1b[36m" : "\x1b[37m" // Cyan for selected, White for others
         const reset = "\x1b[0m"
         
-        process.stdout.write(ERASE_LINE + `${style}${prefix}${icon} ${file.path}${reset}\n`)
+        process.stdout.write(ERASE_LINE + `${style}${prefix}${icon} ${text}${reset}\n`)
       }
       
       // Calculate new height

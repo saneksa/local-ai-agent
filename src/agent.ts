@@ -15,7 +15,7 @@ export interface IOHandler {
 
 export class Agent {
   private client: OpenAI
-  private messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+  private messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
   private io: IOHandler
   private config: AgentConfig
 
@@ -26,6 +26,10 @@ export class Agent {
       baseURL: config.baseURL || "http://localhost:1234/v1",
       apiKey: config.apiKey || "lm-studio",
     })
+    this.reset()
+  }
+
+  reset() {
     this.messages = [
       {
         role: "system",
@@ -33,6 +37,7 @@ export class Agent {
           "You are a helpful assistant capable of reading and writing files. When asked to create or modify files, always use the provided tools. If you need to explore the directory first, use list_files.",
       },
     ]
+    this.io.log("Context reset.")
   }
 
   async chat(userInput: string): Promise<string> {
