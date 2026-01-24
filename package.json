@@ -1,0 +1,21 @@
+{
+  "name": "local-agent",
+  "version": "1.0.0",
+  "description": "A lightweight TypeScript library that lets you create a terminal‑based chatbot powered by an LLM which can read and write files on disk using tool calling.",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "Alexandr Petyaykin",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.0.10",
+    "dotenv": "^17.2.3",
+    "openai": "^6.16.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
