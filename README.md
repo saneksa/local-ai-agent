@@ -18,6 +18,7 @@ It is designed to work out-of-the-box with **local LLMs** (like those running in
 - 📂 **File System Tools**: The agent can `list_files`, `read_file`, and `write_file` to navigate and modify your codebase.
 - 💻 **Shell Command Execution**: The agent can run terminal commands using `run_command`.
 - 🛡️ **Human-in-the-loop Safety**: Dangerous actions (like running shell commands) require your explicit confirmation (Y/N).
+- 🔒 **Security**: Path traversal protection and environment variable configuration.
 - ⚡ **TypeScript & Extensible**: Built with modern TypeScript, easy to extend with your own custom tools.
 
 ## 🛠️ Prerequisites
@@ -25,7 +26,7 @@ It is designed to work out-of-the-box with **local LLMs** (like those running in
 1.  **Node.js** (v18 or higher)
 2.  **LM Studio** (or any other OpenAI-compatible local server)
     - Start the local server.
-    - Ensure it's listening on `http://localhost:1234/v1` (or update the code).
+    - Ensure it's listening on `http://localhost:1234/v1`.
 
 ## 📦 Installation & Usage
 
@@ -42,17 +43,42 @@ It is designed to work out-of-the-box with **local LLMs** (like those running in
     npm install
     ```
 
-3.  **Start the Agent (Development Mode):**
+3.  **Configuration:**
+
+    Copy `.env.example` to `.env`:
+    ```bash
+    cp .env.example .env
+    ```
+    Edit `.env` if you need to change the API URL or Key.
+
+4.  **Start the Agent (Development Mode):**
 
     ```bash
     npm start
     ```
 
-4.  **Start the Agent (Production Mode):**
+5.  **Start the Agent (Production Mode):**
     ```bash
     npm run build
     node dist/index.js
     ```
+
+## 🧪 Testing
+
+The project uses **Vitest** for testing.
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+## ⚙️ Development
+
+- **Linting**: `npm run lint`
+- **Formatting**: `npm run format`
 
 ## 💡 Example Scenario
 
@@ -77,19 +103,6 @@ You: Now install the necessary dependencies for it.
 1.  Call the `run_command` tool with `npm install express @types/express`.
 2.  **Ask for your permission**: `⚠️ Agent wants to execute command: "..." Do you allow this? (y/N)`
 3.  Execute the command upon approval.
-
-## ⚙️ Configuration
-
-The agent is configured in `src/agent.ts`. You can change the default `baseURL` and `apiKey` in the constructor:
-
-```typescript
-// src/agent.ts
-constructor(
-  baseURL: string = "http://localhost:1234/v1", // Change this to your LLM provider
-  apiKey: string = "lm-studio",                 // Change this if using a cloud provider
-  rl: readline.Interface,
-)
-```
 
 ## 🤝 Contributing
 
