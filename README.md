@@ -106,6 +106,39 @@ You: Now install the necessary dependencies for it.
 2.  **Ask for your permission**: `⚠️ Agent wants to execute command: "..." Do you allow this? (y/N)`
 3.  Execute the command upon approval.
 
+## 🔌 Model Context Protocol (MCP) Support
+
+Local Agent supports the **Model Context Protocol (MCP)**, allowing it to connect to external MCP servers to extend its capabilities.
+
+### Configuration
+
+Create a `mcp.config.json` file in the root directory:
+
+```json
+{
+  "servers": [
+    {
+      "id": "filesystem",
+      "name": "Local Filesystem",
+      "transport": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/username/Desktop"]
+      }
+    }
+  ]
+}
+```
+
+### Supported Transports
+
+- **stdio**: Connect to a local process (e.g., via `npx` or `node`).
+- **sse**: Connect to a remote server via Server-Sent Events (SSE).
+
+### Usage
+
+Once configured, the agent will automatically discover tools from connected MCP servers and use them when appropriate.
+
 ## 🤝 Contributing
 
 Contributions are welcome! If you want to add new tools (e.g., web search, database access), check out `src/tools.ts`.

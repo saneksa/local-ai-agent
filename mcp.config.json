@@ -1,0 +1,14 @@
+{
+  "servers": [
+    {
+      "id": "demo-server",
+      "name": "Demo MCP Server",
+      "transport": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["./path/to/server.js"]
+      },
+      "enabled": false
+    }
+  ]
+}

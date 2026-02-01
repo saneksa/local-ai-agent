@@ -1,5 +1,7 @@
 import OpenAI from "openai"
+import * as fs from "fs"
 import { tools, executeTool, ConfirmCallback } from "./tools"
+import { McpManager } from "./mcp/McpManager"
 
 export interface AgentConfig {
   baseURL?: string
@@ -14,7 +16,7 @@ export interface IOHandler {
 
 export class Agent {
   private client: OpenAI
-  private messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+  private messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
   private io: IOHandler
   private config: AgentConfig
 
@@ -25,6 +27,10 @@ export class Agent {
       baseURL: config.baseURL || "http://localhost:1234/v1",
       apiKey: config.apiKey || "lm-studio",
     })
+    this.reset()
+  }
+
+  reset() {
     this.messages = [
       {
         role: "system",
@@ -32,10 +38,13 @@ export class Agent {
           "You are a helpful assistant capable of reading and writing files. When asked to create or modify files, always use the provided tools. If you need to explore the directory first, use list_files.",
       },
     ]
+    this.io.log("Context reset.")
   }
 
   async chat(userInput: string): Promise<string> {
-    this.messages.push({ role: "user", content: userInput })
+    await McpManager.getInstance().ensureInitialized()
+    const augmentedInput = await this.resolveFileReferences(userInput)
+    this.messages.push({ role: "user", content: augmentedInput })
 
     let loopCount = 0
     const MAX_LOOPS = 50
@@ -44,11 +53,14 @@ export class Agent {
       this.io.log(`Sending request to LLM (Loop ${loopCount + 1})...`)
 
       try {
+        const mcpTools = await McpManager.getInstance().getTools()
+        const allTools = [...tools, ...mcpTools]
+
         const response = await this.client.chat.completions.create({
           model: this.config.model || "local-model",
           messages: this.messages,
-          tools: tools as any,
-          tool_choice: "auto",
+          tools: allTools.length > 0 ? (allTools as any) : undefined,
+          tool_choice: allTools.length > 0 ? "auto" : undefined,
         })
 
         const responseMessage = response.choices[0].message
@@ -65,7 +77,27 @@ export class Agent {
             const functionArgs = JSON.parse(toolCall.function.arguments)
 
             this.io.log(`Executing ${functionName} with args: ${JSON.stringify(functionArgs)}`)
-            const toolResult = await executeTool(functionName, functionArgs, this.io.confirm)
+
+            let toolResult = ""
+            const isLocal = tools.some((t) => t.function.name === functionName)
+
+            if (isLocal) {
+              toolResult = await executeTool(functionName, functionArgs, this.io.confirm)
+            } else {
+              try {
+                const mcpResult = await McpManager.getInstance().executeTool(
+                  functionName,
+                  functionArgs,
+                )
+                if (mcpResult !== null) {
+                  toolResult = mcpResult
+                } else {
+                  toolResult = `Error: Unknown tool ${functionName}`
+                }
+              } catch (e: any) {
+                toolResult = `Error executing MCP tool ${functionName}: ${e.message}`
+              }
+            }
 
             this.messages.push({
               role: "tool",
@@ -86,5 +118,33 @@ export class Agent {
     }
 
     return "Error: Maximum loop count reached."
+  }
+
+  private async resolveFileReferences(input: string): Promise<string> {
+    const fileRegex = /\[.*?\]\((.*?)\)/g
+    let match
+    let content = input
+    const filesToRead: string[] = []
+
+    while ((match = fileRegex.exec(input)) !== null) {
+      filesToRead.push(match[1])
+    }
+
+    if (filesToRead.length > 0) {
+      content += "\n\nContext Files:"
+      for (const filePath of filesToRead) {
+        try {
+          // Check if file exists and is readable
+          if (fs.existsSync(filePath)) {
+            const fileContent = await fs.promises.readFile(filePath, "utf-8")
+            content += `\n\n--- ${filePath} ---\n${fileContent}\n--- End of ${filePath} ---`
+          }
+        } catch (e: any) {
+          // Ignore errors, maybe the link is not a local file
+          console.warn(`Could not read referenced file ${filePath}: ${e.message}`)
+        }
+      }
+    }
+    return content
   }
 }
