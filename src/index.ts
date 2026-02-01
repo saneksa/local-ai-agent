@@ -40,12 +40,12 @@ console.log("Tip: Type '#' to link files, '/' to run commands.")
 async function mainLoop() {
   // Initial scan
   await fileRegistry.scan()
-  
+
   while (true) {
     try {
       console.log("")
       const input = await prompt.ask("You: ")
-      
+
       if (input.toLowerCase() === "exit") {
         process.exit(0)
       }
@@ -54,15 +54,15 @@ async function mainLoop() {
 
       // Check if it's a command
       if (input.startsWith("/")) {
-          const commandName = input.slice(1).trim()
-          if (commandName === "reset") {
-              agent.reset()
-              continue
-          } else if (commandName === "exit") {
-              process.exit(0)
-          }
-          // We can also look up in commandRegistry for generic execution if we add action handlers there
-          // For now, hardcoded handling for reset is fine as requested.
+        const commandName = input.slice(1).trim()
+        if (commandName === "reset") {
+          agent.reset()
+          continue
+        } else if (commandName === "exit") {
+          process.exit(0)
+        }
+        // We can also look up in commandRegistry for generic execution if we add action handlers there
+        // For now, hardcoded handling for reset is fine as requested.
       }
 
       const response = await agent.chat(input)

@@ -59,7 +59,7 @@ export class Agent {
         const response = await this.client.chat.completions.create({
           model: this.config.model || "local-model",
           messages: this.messages,
-          tools: allTools.length > 0 ? (allTools as any) : undefined,
+          tools: allTools.length > 0 ? allTools : undefined,
           tool_choice: allTools.length > 0 ? "auto" : undefined,
         })
 
@@ -94,8 +94,8 @@ export class Agent {
                 } else {
                   toolResult = `Error: Unknown tool ${functionName}`
                 }
-              } catch (e: any) {
-                toolResult = `Error executing MCP tool ${functionName}: ${e.message}`
+              } catch (e: unknown) {
+                toolResult = `Error executing MCP tool ${functionName}: ${(e as Error).message}`
               }
             }
 
@@ -109,9 +109,9 @@ export class Agent {
           // No tool calls, just a text response
           return responseMessage.content || "No content returned."
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error during LLM interaction:", error)
-        return `An error occurred while communicating with the LLM: ${error.message}`
+        return `An error occurred while communicating with the LLM: ${(error as Error).message}`
       }
 
       loopCount++
@@ -139,9 +139,9 @@ export class Agent {
             const fileContent = await fs.promises.readFile(filePath, "utf-8")
             content += `\n\n--- ${filePath} ---\n${fileContent}\n--- End of ${filePath} ---`
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           // Ignore errors, maybe the link is not a local file
-          console.warn(`Could not read referenced file ${filePath}: ${e.message}`)
+          console.warn(`Could not read referenced file ${filePath}: ${(e as Error).message}`)
         }
       }
     }

@@ -169,7 +169,7 @@ export async function executeTool(
       default:
         return `Error: Unknown tool ${name}`
     }
-  } catch (error: any) {
-    return `Error executing ${name}: ${error.message}`
+  } catch (error: unknown) {
+    return `Error executing ${name}: ${(error as Error).message}`
   }
 }

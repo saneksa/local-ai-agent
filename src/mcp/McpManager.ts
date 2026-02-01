@@ -51,7 +51,7 @@ export class McpManager {
   async connectAll() {
     await Promise.all(
       this.clients.map((c) =>
-        c.connect().catch((e) => {
+        c.connect().catch(() => {
           // Log handled in client
         }),
       ),
