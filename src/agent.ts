@@ -1,6 +1,7 @@
 import OpenAI from "openai"
 import * as fs from "fs"
 import { tools, executeTool, ConfirmCallback } from "./tools"
+import { McpManager } from "./mcp/McpManager"
 
 export interface AgentConfig {
   baseURL?: string
@@ -41,6 +42,7 @@ export class Agent {
   }
 
   async chat(userInput: string): Promise<string> {
+    await McpManager.getInstance().ensureInitialized()
     const augmentedInput = await this.resolveFileReferences(userInput)
     this.messages.push({ role: "user", content: augmentedInput })
 
@@ -51,11 +53,14 @@ export class Agent {
       this.io.log(`Sending request to LLM (Loop ${loopCount + 1})...`)
 
       try {
+        const mcpTools = await McpManager.getInstance().getTools()
+        const allTools = [...tools, ...mcpTools]
+
         const response = await this.client.chat.completions.create({
           model: this.config.model || "local-model",
           messages: this.messages,
-          tools: tools as any,
-          tool_choice: "auto",
+          tools: allTools.length > 0 ? (allTools as any) : undefined,
+          tool_choice: allTools.length > 0 ? "auto" : undefined,
         })
 
         const responseMessage = response.choices[0].message
@@ -72,7 +77,27 @@ export class Agent {
             const functionArgs = JSON.parse(toolCall.function.arguments)
 
             this.io.log(`Executing ${functionName} with args: ${JSON.stringify(functionArgs)}`)
-            const toolResult = await executeTool(functionName, functionArgs, this.io.confirm)
+
+            let toolResult = ""
+            const isLocal = tools.some((t) => t.function.name === functionName)
+
+            if (isLocal) {
+              toolResult = await executeTool(functionName, functionArgs, this.io.confirm)
+            } else {
+              try {
+                const mcpResult = await McpManager.getInstance().executeTool(
+                  functionName,
+                  functionArgs,
+                )
+                if (mcpResult !== null) {
+                  toolResult = mcpResult
+                } else {
+                  toolResult = `Error: Unknown tool ${functionName}`
+                }
+              } catch (e: any) {
+                toolResult = `Error executing MCP tool ${functionName}: ${e.message}`
+              }
+            }
 
             this.messages.push({
               role: "tool",

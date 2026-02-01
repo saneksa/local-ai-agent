@@ -16,10 +16,12 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/node": "^25.0.10",
     "openai": "^6.16.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/eslint": "^9.6.1",
