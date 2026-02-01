@@ -46,9 +46,11 @@ It is designed to work out-of-the-box with **local LLMs** (like those running in
 3.  **Configuration:**
 
     Copy `.env.example` to `.env`:
+
     ```bash
     cp .env.example .env
     ```
+
     Edit `.env` if you need to change the API URL or Key.
 
 4.  **Start the Agent (Development Mode):**

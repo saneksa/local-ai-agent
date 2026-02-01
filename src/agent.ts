@@ -45,7 +45,7 @@ export class Agent {
     this.messages.push({ role: "user", content: augmentedInput })
 
     let loopCount = 0
-    const MAX_LOOPS = 20
+    const MAX_LOOPS = 50
 
     while (loopCount < MAX_LOOPS) {
       this.io.log(`Sending request to LLM (Loop ${loopCount + 1})...`)
